@@ -5,6 +5,7 @@ import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/
 import {AccessControlUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/AccessControlUpgradeable.sol";
 
 import {IFactsRegistry} from "./interfaces/IFactsRegistry.sol";
+import {IStarknet} from "./interfaces/IStarknet.sol";
 import {Uint256Splitter} from "./lib/Uint256Splitter.sol";
 
 /// @title SharpFactsAggregator
@@ -34,6 +35,9 @@ contract SharpFactsAggregator is Initializable, AccessControlUpgradeable {
     // Sharp Facts Registry
     IFactsRegistry public immutable FACTS_REGISTRY;
 
+    // Starknet core contract
+    IStarknet public immutable STARKNET;
+
     // Cairo program hash (i.e., the off-chain block headers accumulator program)
     bytes32 public constant PROGRAM_HASH =
         bytes32(
@@ -45,7 +49,6 @@ contract SharpFactsAggregator is Initializable, AccessControlUpgradeable {
     // Global aggregator state
     struct AggregatorState {
         bytes32 poseidonMmrRoot;
-        bytes32 keccakMmrRoot;
         uint256 mmrSize;
         bytes32 continuableParentHash;
     }
@@ -63,30 +66,12 @@ contract SharpFactsAggregator is Initializable, AccessControlUpgradeable {
     struct JobOutput {
         uint256 fromBlockNumberHigh;
         uint256 toBlockNumberLow;
-        bytes32 blockNPlusOneParentHashLow;
-        bytes32 blockNPlusOneParentHashHigh;
-        bytes32 blockNMinusRPlusOneParentHashLow;
-        bytes32 blockNMinusRPlusOneParentHashHigh;
-        bytes32 mmrPreviousRootPoseidon;
-        bytes32 mmrPreviousRootKeccakLow;
-        bytes32 mmrPreviousRootKeccakHigh;
-        uint256 mmrPreviousSize;
-        bytes32 mmrNewRootPoseidon;
-        bytes32 mmrNewRootKeccakLow;
-        bytes32 mmrNewRootKeccakHigh;
-        uint256 mmrNewSize;
-    }
-
-    // Packed representation of the Cairo program's output (for gas efficiency)
-    struct JobOutputPacked {
-        uint256 blockNumbersPacked;
         bytes32 blockNPlusOneParentHash;
         bytes32 blockNMinusRPlusOneParentHash;
         bytes32 mmrPreviousRootPoseidon;
-        bytes32 mmrPreviousRootKeccak;
+        uint256 mmrPreviousSize;
         bytes32 mmrNewRootPoseidon;
-        bytes32 mmrNewRootKeccak;
-        uint256 mmrSizesPacked;
+        uint256 mmrNewSize;
     }
 
     // Custom errors for better error handling and clarity
@@ -118,8 +103,9 @@ contract SharpFactsAggregator is Initializable, AccessControlUpgradeable {
 
     event OperatorRequirementChange(bool newRequirement);
 
-    constructor(IFactsRegistry factsRegistry) {
+    constructor(IFactsRegistry factsRegistry, IStarknet starknet) {
         FACTS_REGISTRY = factsRegistry;
+        STARKNET = starknet;
     }
 
     /**
@@ -174,45 +160,24 @@ contract SharpFactsAggregator is Initializable, AccessControlUpgradeable {
     }
 
     /// Registers a new range to aggregate from
-    /// @notice Caches a recent block hash (MINIMUM_BLOCKS_CONFIRMATIONS to -MAXIMUM_BLOCKS_CONFIRMATIONS from present), relying on the global `blockhash` Solidity function
-    /// @param blocksConfirmations Number of blocks preceding the current block
-    function registerNewRange(
-        uint256 blocksConfirmations
-    ) external onlyOperator {
-        // Minimum blocks confirmations to avoid reorgs
-        if (blocksConfirmations < MINIMUM_BLOCKS_CONFIRMATIONS) {
-            revert NotEnoughBlockConfirmations();
-        }
-
-        // Maximum MAXIMUM_BLOCKS_CONFIRMATIONS blocks confirmations to capture
-        // an available block hash with Solidity `blockhash()`
-        if (blocksConfirmations > MAXIMUM_BLOCKS_CONFIRMATIONS) {
-            revert TooManyBlocksConfirmations();
-        }
-
-        // Determine the target block number (i.e. the child block)
-        uint256 targetBlock = block.number - blocksConfirmations;
+    function registerNewRange() external onlyOperator {
+        // From the starknet core contract get the latest settled block number
+        uint256 latestSettledStarknetBlock = STARKNET.stateBlockNumber();
 
         // Extract its parent hash.
-        bytes32 targetBlockParentHash = blockhash(targetBlock - 1);
-
-        // If the parent hash is not available, revert
-        // (This should never happen under the current EVM rules)
-        if (targetBlockParentHash == bytes32(0)) {
-            revert UnknownParentHash();
-        }
+        bytes32 latestSettledStarknetBlockhash = bytes32(STARKNET.stateBlockHash());
 
         // Cache the parent hash so that we can later on continue accumlating from it
-        blockNumberToParentHash[targetBlock] = targetBlockParentHash;
+        blockNumberToParentHash[latestSettledStarknetBlock + 1] = latestSettledStarknetBlockhash;
 
         // If we cannot aggregate further in the past (e.g., genesis block is reached or it's a new tree)
         if (aggregatorState.continuableParentHash == bytes32(0)) {
             // Set the aggregator state's `continuableParentHash` to the target block's parent hash
             // so we can easily continue aggregating from it without specifying `rightBoundStartBlock` in `aggregateSharpJobs`
-            aggregatorState.continuableParentHash = targetBlockParentHash;
+            aggregatorState.continuableParentHash = latestSettledStarknetBlockhash;
         }
 
-        emit NewRangeRegistered(targetBlock, targetBlockParentHash);
+        emit NewRangeRegistered(latestSettledStarknetBlock + 1, latestSettledStarknetBlockhash);
     }
 
     /// @notice Aggregate SHARP jobs outputs (min. 1) to update the global aggregator state
@@ -220,7 +185,7 @@ contract SharpFactsAggregator is Initializable, AccessControlUpgradeable {
     /// @param outputs Array of SHARP jobs outputs (packed for Solidity)
     function aggregateSharpJobs(
         uint256 rightBoundStartBlock,
-        JobOutputPacked[] calldata outputs
+        JobOutput[] calldata outputs
     ) external onlyOperator {
         // Ensuring at least one job output is provided
         if (outputs.length < 1) {
@@ -242,7 +207,7 @@ contract SharpFactsAggregator is Initializable, AccessControlUpgradeable {
             }
         }
 
-        JobOutputPacked calldata firstOutput = outputs[0];
+        JobOutput calldata firstOutput = outputs[0];
         // Ensure the first job is continuable
         ensureContinuable(rightBoundStartBlockParentHash, firstOutput);
 
@@ -275,7 +240,6 @@ contract SharpFactsAggregator is Initializable, AccessControlUpgradeable {
         // We save the latest output in the contract state for future calls
         (, uint256 mmrNewSize) = lastOutput.mmrSizesPacked.split128();
         aggregatorState.poseidonMmrRoot = lastOutput.mmrNewRootPoseidon;
-        aggregatorState.keccakMmrRoot = lastOutput.mmrNewRootKeccak;
         aggregatorState.mmrSize = mmrNewSize;
         aggregatorState.continuableParentHash = lastOutput
             .blockNMinusRPlusOneParentHash;
