@@ -8,16 +8,19 @@ import {SharpFactsAggregator} from "../src/SharpFactsAggregator.sol";
 import {AggregatorsFactory} from "../src/AggregatorsFactory.sol";
 
 import {IFactsRegistry} from "../src/interfaces/IFactsRegistry.sol";
+import {IStarknet} from "../src/interfaces/IStarknet.sol";
+
 
 contract AggregatorsFactoryDeployer is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY"); 
         vm.startBroadcast(deployerPrivateKey);
 
-        IFactsRegistry factsRegistry = IFactsRegistry(vm.envAddress("FACTS_REGISTRY_ADDRESS")); 
+        IFactsRegistry factsRegistry = IFactsRegistry(vm.envAddress("FACTS_REGISTRY_ADDRESS"));
+        IStarknet starknet = IStarknet(vm.envAddress("STARKNET_ADDRESS")); 
 
         // Deploy the template
-        SharpFactsAggregator aggregatorTemplate = new SharpFactsAggregator(factsRegistry);
+        SharpFactsAggregator aggregatorTemplate = new SharpFactsAggregator(factsRegistry, starknet);
 
         console.log(
             "Aggregator TEMPLATE deployed at: ",

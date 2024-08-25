@@ -104,12 +104,10 @@ contract AggregatorsFactory is AccessControl {
 
             (
                 bytes32 poseidonMmrRoot,
-                bytes32 keccakMmrRoot,
                 uint256 mmrSize,
                 bytes32 continuableParentHash
             ) = existingAggregator.aggregatorState();
             initialAggregatorState.poseidonMmrRoot = poseidonMmrRoot;
-            initialAggregatorState.keccakMmrRoot = keccakMmrRoot;
             initialAggregatorState.mmrSize = mmrSize;
             initialAggregatorState
                 .continuableParentHash = continuableParentHash;
@@ -117,7 +115,6 @@ contract AggregatorsFactory is AccessControl {
             // Create a new aggregator (detach from existing ones)
             initialAggregatorState = SharpFactsAggregator.AggregatorState({
                 poseidonMmrRoot: POSEIDON_MMR_INITIAL_ROOT,
-                keccakMmrRoot: KECCAK_MMR_INITIAL_ROOT,
                 mmrSize: 1,
                 continuableParentHash: bytes32(0)
             });

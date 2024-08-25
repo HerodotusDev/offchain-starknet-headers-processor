@@ -96,7 +96,6 @@ contract SharpFactsAggregator is Initializable, AccessControlUpgradeable {
         uint256 fromBlockNumberHigh,
         uint256 toBlockNumberLow,
         bytes32 poseidonMmrRoot,
-        bytes32 keccakMmrRoot,
         uint256 mmrSize,
         bytes32 continuableParentHash
     );
@@ -162,7 +161,7 @@ contract SharpFactsAggregator is Initializable, AccessControlUpgradeable {
     /// Registers a new range to aggregate from
     function registerNewRange() external onlyOperator {
         // From the starknet core contract get the latest settled block number
-        uint256 latestSettledStarknetBlock = STARKNET.stateBlockNumber();
+        uint256 latestSettledStarknetBlock = uint256(STARKNET.stateBlockNumber());
 
         // Extract its parent hash.
         bytes32 latestSettledStarknetBlockhash = bytes32(STARKNET.stateBlockHash());
@@ -212,9 +211,7 @@ contract SharpFactsAggregator is Initializable, AccessControlUpgradeable {
         ensureContinuable(rightBoundStartBlockParentHash, firstOutput);
 
         if (rightBoundStartBlockParentHash != bytes32(0)) {
-            (uint256 fromBlockHighStart, ) = firstOutput
-                .blockNumbersPacked
-                .split128();
+            uint256 fromBlockHighStart = firstOutput.fromBlockNumberHigh;
 
             // We check that block numbers are consecutives
             if (fromBlockHighStart != rightBoundStartBlock - 1) {
@@ -227,31 +224,29 @@ contract SharpFactsAggregator is Initializable, AccessControlUpgradeable {
         // Iterate over the jobs outputs (aside from the last one)
         // and ensure jobs are correctly linked and valid
         for (uint256 i = 0; i < limit; ++i) {
-            JobOutputPacked calldata curOutput = outputs[i];
-            JobOutputPacked calldata nextOutput = outputs[i + 1];
+            JobOutput calldata curOutput = outputs[i];
+            JobOutput calldata nextOutput = outputs[i + 1];
 
             ensureValidFact(curOutput);
             ensureConsecutiveJobs(curOutput, nextOutput);
         }
 
-        JobOutputPacked calldata lastOutput = outputs[limit];
+        JobOutput calldata lastOutput = outputs[limit];
         ensureValidFact(lastOutput);
 
         // We save the latest output in the contract state for future calls
-        (, uint256 mmrNewSize) = lastOutput.mmrSizesPacked.split128();
+        uint256 mmrNewSize = lastOutput.mmrNewSize;
         aggregatorState.poseidonMmrRoot = lastOutput.mmrNewRootPoseidon;
         aggregatorState.mmrSize = mmrNewSize;
-        aggregatorState.continuableParentHash = lastOutput
-            .blockNMinusRPlusOneParentHash;
+        aggregatorState.continuableParentHash = lastOutput.blockNMinusRPlusOneParentHash;
 
-        (uint256 fromBlock, ) = firstOutput.blockNumbersPacked.split128();
-        (, uint256 toBlock) = lastOutput.blockNumbersPacked.split128();
+        uint256 fromBlock = firstOutput.fromBlockNumberHigh;
+        uint256 toBlock = firstOutput.toBlockNumberLow;
 
         emit Aggregate(
             fromBlock,
             toBlock,
             lastOutput.mmrNewRootPoseidon,
-            lastOutput.mmrNewRootKeccak,
             mmrNewSize,
             lastOutput.blockNMinusRPlusOneParentHash
         );
@@ -259,49 +254,23 @@ contract SharpFactsAggregator is Initializable, AccessControlUpgradeable {
 
     /// @notice Ensures the fact is registered on SHARP Facts Registry
     /// @param output SHARP job output (packed for Solidity)
-    function ensureValidFact(JobOutputPacked memory output) internal view {
-        (uint256 fromBlock, uint256 toBlock) = output
-            .blockNumbersPacked
-            .split128();
+    function ensureValidFact(JobOutput memory output) internal view {
+        uint256 fromBlock = output.fromBlockNumberHigh;
+        uint256 toBlock = output.toBlockNumberLow;
 
-        (uint256 mmrPreviousSize, uint256 mmrNewSize) = output
-            .mmrSizesPacked
-            .split128();
-        (
-            uint256 blockNPlusOneParentHashLow,
-            uint256 blockNPlusOneParentHashHigh
-        ) = uint256(output.blockNPlusOneParentHash).split128();
-
-        (
-            uint256 blockNMinusRPlusOneParentHashLow,
-            uint256 blockNMinusRPlusOneParentHashHigh
-        ) = uint256(output.blockNMinusRPlusOneParentHash).split128();
-
-        (
-            uint256 mmrPreviousRootKeccakLow,
-            uint256 mmrPreviousRootKeccakHigh
-        ) = uint256(output.mmrPreviousRootKeccak).split128();
-
-        (uint256 mmrNewRootKeccakLow, uint256 mmrNewRootKeccakHigh) = uint256(
-            output.mmrNewRootKeccak
-        ).split128();
+        uint256 mmrPreviousSize = output.mmrPreviousSize;
+        uint256 mmrNewSize = output.mmrNewSize;
 
         // We assemble the outputs in a uint256 array
-        uint256[] memory outputs = new uint256[](14);
+        uint256[] memory outputs = new uint256[](8);
         outputs[0] = fromBlock;
         outputs[1] = toBlock;
-        outputs[2] = blockNPlusOneParentHashLow;
-        outputs[3] = blockNPlusOneParentHashHigh;
-        outputs[4] = blockNMinusRPlusOneParentHashLow;
-        outputs[5] = blockNMinusRPlusOneParentHashHigh;
-        outputs[6] = uint256(output.mmrPreviousRootPoseidon);
-        outputs[7] = mmrPreviousRootKeccakLow;
-        outputs[8] = mmrPreviousRootKeccakHigh;
-        outputs[9] = mmrPreviousSize;
-        outputs[10] = uint256(output.mmrNewRootPoseidon);
-        outputs[11] = mmrNewRootKeccakLow;
-        outputs[12] = mmrNewRootKeccakHigh;
-        outputs[13] = mmrNewSize;
+        outputs[2] = uint256(output.blockNPlusOneParentHash);
+        outputs[3] = uint256(output.blockNMinusRPlusOneParentHash);
+        outputs[4] = uint256(output.mmrPreviousRootPoseidon);
+        outputs[5] = mmrPreviousSize;
+        outputs[6] = uint256(output.mmrNewRootPoseidon);
+        outputs[7] = mmrNewSize;
 
         // We hash the outputs
         bytes32 outputHash = keccak256(abi.encodePacked(outputs));
@@ -320,17 +289,13 @@ contract SharpFactsAggregator is Initializable, AccessControlUpgradeable {
     /// @param output The job output to check
     function ensureContinuable(
         bytes32 rightBoundStartParentHash,
-        JobOutputPacked memory output
+        JobOutput memory output
     ) internal view {
-        (uint256 mmrPreviousSize, ) = output.mmrSizesPacked.split128();
+        uint256 mmrPreviousSize = output.mmrPreviousSize;
 
         // Check that the job's previous Poseidon MMR root is the same as the one stored in the contract state
         if (output.mmrPreviousRootPoseidon != aggregatorState.poseidonMmrRoot)
             revert AggregationError("Poseidon root mismatch");
-
-        // Check that the job's previous Keccak MMR root is the same as the one stored in the contract state
-        if (output.mmrPreviousRootKeccak != aggregatorState.keccakMmrRoot)
-            revert AggregationError("Keccak root mismatch");
 
         // Check that the job's previous MMR size is the same as the one stored in the contract state
         if (mmrPreviousSize != aggregatorState.mmrSize)
@@ -358,33 +323,28 @@ contract SharpFactsAggregator is Initializable, AccessControlUpgradeable {
     /// @param output The job output to check
     /// @param nextOutput The next job output to check
     function ensureConsecutiveJobs(
-        JobOutputPacked memory output,
-        JobOutputPacked memory nextOutput
+        JobOutput memory output,
+        JobOutput memory nextOutput
     ) internal pure {
-        (, uint256 toBlock) = output.blockNumbersPacked.split128();
+        uint256 toBlock = output.toBlockNumberLow;
 
         // We cannot aggregate further past the genesis block
         if (toBlock == 0) {
             revert GenesisBlockReached();
         }
 
-        (uint256 nextFromBlock, ) = nextOutput.blockNumbersPacked.split128();
+        uint256 nextFromBlock = nextOutput.fromBlockNumberHigh;
 
         // We check that the next job's `from block` is the same as the previous job's `to block + 1`
         if (toBlock - 1 != nextFromBlock) revert AggregationBlockMismatch();
 
-        (, uint256 outputMmrNewSize) = output.mmrSizesPacked.split128();
-        (uint256 nextOutputMmrPreviousSize, ) = nextOutput
-            .mmrSizesPacked
-            .split128();
+        uint256 outputMmrNewSize = output.mmrNewSize;
+        uint256 nextOutputMmrPreviousSize = nextOutput.mmrPreviousSize;
 
         // We check that the previous job's new Poseidon MMR root matches the next job's previous Poseidon MMR root
         if (output.mmrNewRootPoseidon != nextOutput.mmrPreviousRootPoseidon)
             revert AggregationError("Poseidon root mismatch");
 
-        // We check that the previous job's new Keccak MMR root matches the next job's previous Keccak MMR root
-        if (output.mmrNewRootKeccak != nextOutput.mmrPreviousRootKeccak)
-            revert AggregationError("Keccak root mismatch");
 
         // We check that the previous job's new MMR size matches the next job's previous MMR size
         if (outputMmrNewSize != nextOutputMmrPreviousSize)
@@ -403,11 +363,6 @@ contract SharpFactsAggregator is Initializable, AccessControlUpgradeable {
         bytes32 fact = keccak256(abi.encode(PROGRAM_HASH, outputHash));
 
         return FACTS_REGISTRY.isValid(fact);
-    }
-
-    /// @notice Returns the current root hash of the Keccak Merkle Mountain Range (MMR) tree
-    function getMMRKeccakRoot() external view returns (bytes32) {
-        return aggregatorState.keccakMmrRoot;
     }
 
     /// @notice Returns the current root hash of the Poseidon Merkle Mountain Range (MMR) tree
