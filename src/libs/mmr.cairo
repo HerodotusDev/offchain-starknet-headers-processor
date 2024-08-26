@@ -275,11 +275,9 @@ func left_child_jump_until_inside_mmr{range_check_ptr, pow2_array: felt*, mmr_le
 func get_full_mmr_peak_values{
     range_check_ptr,
     mmr_array_poseidon: felt*,
-    mmr_array_keccak: Uint256*,
     mmr_offset: felt,
     previous_peaks_dict_poseidon: DictAccess*,
-    previous_peaks_dict_keccak: DictAccess*,
-}(position: felt) -> (peak_poseidon: felt, peak_keccak: Uint256) {
+}(position: felt) -> (peak_poseidon: felt) {
     alloc_locals;
     // %{ print(f"Asked position : {ids.position}, mmr_offset : {ids.mmr_offset}") %}
     local is_position_in_mmr_array: felt;
@@ -291,30 +289,23 @@ func get_full_mmr_peak_values{
         assert [range_check_ptr] = mmr_array_position;
         tempvar range_check_ptr = range_check_ptr + 1;
         let peak_poseidon = mmr_array_poseidon[mmr_array_position];
-        let peak_keccak = mmr_array_keccak[mmr_array_position];
         // %{
         //     print(f"mmr_array poseidon value at {ids.position - ids.mmr_offset -1} = {ids.peak_poseidon}")
         //     print(f"mmr_array keccak value at {ids.position - ids.mmr_offset -1 } = {ids.peak_keccak.low} {ids.peak_keccak.high}")
         // %}
-        return (peak_poseidon, peak_keccak);
+        return (peak_poseidon,);
     } else {
         // %{ print('getting from dict') %}
         // ensure position <= mmr_offset
         assert [range_check_ptr] = mmr_offset - position;
         tempvar range_check_ptr = range_check_ptr + 1;
         let (peak_poseidon: felt) = dict_read{dict_ptr=previous_peaks_dict_poseidon}(key=position);
-        // Treat the felt value from dict back to a Uint256 ptr:
-        let (peak_keccak_ptr: Uint256*) = dict_read{dict_ptr=previous_peaks_dict_keccak}(
-            key=position
-        );
-        local peak_keccak: Uint256;
-        assert peak_keccak.low = peak_keccak_ptr.low;
-        assert peak_keccak.high = peak_keccak_ptr.high;
+
         // %{
         //     print(f"dict_peak poseidon value at {ids.position} = {ids.peak_poseidon}")
         //     print(f"dict_peak keccak value at {ids.position} = {ids.peak_keccak.low} {ids.peak_keccak.high}")
         // %}
-        return (peak_poseidon, peak_keccak);
+        return (peak_poseidon,);
     }
 }
 
@@ -340,35 +331,24 @@ func get_roots{
     range_check_ptr,
     bitwise_ptr: BitwiseBuiltin*,
     poseidon_ptr: PoseidonBuiltin*,
-    keccak_ptr: KeccakBuiltin*,
     mmr_array_poseidon: felt*,
-    mmr_array_keccak: Uint256*,
     mmr_array_len: felt,
     pow2_array: felt*,
     previous_peaks_dict_poseidon: DictAccess*,
-    previous_peaks_dict_keccak: DictAccess*,
     mmr_offset: felt,
-}() -> (root_poseidon: felt, root_keccak: Uint256) {
+}() -> (root_poseidon: felt) {
     alloc_locals;
     let mmr_size = mmr_offset + mmr_array_len;
     let (peaks_positions: felt*, peaks_len: felt) = compute_peaks_positions(mmr_size);
-    let (peaks_poseidon: felt*, peaks_keccak: Uint256*) = get_peaks_from_positions{
+    let (peaks_poseidon: felt*) = get_peaks_from_positions{
         peaks_positions=peaks_positions
     }(peaks_len);
-    let (bagged_peaks_poseidon, bagged_peaks_keccak) = bag_peaks(
-        peaks_poseidon, peaks_keccak, peaks_len
+    let (bagged_peaks_poseidon) = bag_peaks(
+        peaks_poseidon, peaks_len
     );
 
     let (root_poseidon) = poseidon_hash(mmr_size, bagged_peaks_poseidon);
-
-    let (keccak_input: felt*) = alloc();
-    let inputs_start = keccak_input;
-    keccak_add_uint256{inputs=keccak_input}(num=Uint256(mmr_size, 0), bigend=1);
-    keccak_add_uint256{inputs=keccak_input}(num=bagged_peaks_keccak, bigend=1);
-    let (root_keccak: Uint256) = keccak(inputs=inputs_start, n_bytes=2 * 32);
-    let (root_keccak) = uint256_reverse_endian(root_keccak);
-
-    return (root_poseidon, root_keccak);
+    return (root_poseidon,);
 }
 
 // Returns the peaks values from left to right for both MMRs given the peaks positions
@@ -388,17 +368,14 @@ func get_roots{
 func get_peaks_from_positions{
     range_check_ptr,
     mmr_array_poseidon: felt*,
-    mmr_array_keccak: Uint256*,
     mmr_offset: felt,
     previous_peaks_dict_poseidon: DictAccess*,
-    previous_peaks_dict_keccak: DictAccess*,
     peaks_positions: felt*,
-}(peaks_len: felt) -> (peaks_poseidon: felt*, peaks_keccak: Uint256*) {
+}(peaks_len: felt) -> (peaks_poseidon: felt*) {
     alloc_locals;
     let (peaks_poseidon: felt*) = alloc();
-    let (peaks_keccak: Uint256*) = alloc();
-    get_peaks_from_positions_inner(peaks_poseidon, peaks_keccak, peaks_len - 1);
-    return (peaks_poseidon, peaks_keccak);
+    get_peaks_from_positions_inner(peaks_poseidon, peaks_len - 1);
+    return (peaks_poseidon,);
 }
 
 // Inner function for get_peaks_from_positions. Should only be called within get_peaks_from_positions with its requirements satisfied.
@@ -416,28 +393,22 @@ func get_peaks_from_positions{
 func get_peaks_from_positions_inner{
     range_check_ptr,
     mmr_array_poseidon: felt*,
-    mmr_array_keccak: Uint256*,
     mmr_offset: felt,
     previous_peaks_dict_poseidon: DictAccess*,
-    previous_peaks_dict_keccak: DictAccess*,
     peaks_positions: felt*,
-}(peaks_poseidon: felt*, peaks_keccak: Uint256*, index: felt) {
+}(peaks_poseidon: felt*, index: felt) {
     alloc_locals;
     if (index == 0) {
-        let (value_poseidon: felt, value_keccak: Uint256) = get_full_mmr_peak_values(
+        let (value_poseidon: felt) = get_full_mmr_peak_values(
             peaks_positions[0]
         );
         assert peaks_poseidon[0] = value_poseidon;
-        assert peaks_keccak[0].low = value_keccak.low;
-        assert peaks_keccak[0].high = value_keccak.high;
 
         return ();
     } else {
-        let (value_poseidon, value_keccak) = get_full_mmr_peak_values(peaks_positions[index]);
+        let (value_poseidon) = get_full_mmr_peak_values(peaks_positions[index]);
         assert peaks_poseidon[index] = value_poseidon;
-        assert peaks_keccak[index].low = value_keccak.low;
-        assert peaks_keccak[index].high = value_keccak.high;
-        return get_peaks_from_positions_inner(peaks_poseidon, peaks_keccak, index - 1);
+        return get_peaks_from_positions_inner(peaks_poseidon, index - 1);
     }
 }
 
@@ -454,27 +425,17 @@ func bag_peaks{
     range_check_ptr,
     bitwise_ptr: BitwiseBuiltin*,
     poseidon_ptr: PoseidonBuiltin*,
-    keccak_ptr: KeccakBuiltin*,
-}(peaks_poseidon: felt*, peaks_keccak: Uint256*, peaks_len: felt) -> (
-    bag_peaks_poseidon: felt, bag_peaks_keccak: Uint256
-) {
+}(peaks_poseidon: felt*, peaks_len: felt) -> (bag_peaks_poseidon: felt) {
     alloc_locals;
 
     assert_le(1, peaks_len);
     if (peaks_len == 1) {
-        return ([peaks_poseidon], [peaks_keccak]);
+        return ([peaks_poseidon],);
     }
 
     let last_peak_poseidon = [peaks_poseidon];
-    let last_peak_keccak = [peaks_keccak];
-    let (rec_poseidon, rec_keccak) = bag_peaks(peaks_poseidon + 1, peaks_keccak + 2, peaks_len - 1);
-
+    let (rec_poseidon) = bag_peaks(peaks_poseidon + 1, peaks_len - 1);
     let (res_poseidon) = poseidon_hash(last_peak_poseidon, rec_poseidon);
-    let (keccak_input: felt*) = alloc();
-    let inputs_start = keccak_input;
-    keccak_add_uint256{inputs=keccak_input}(num=last_peak_keccak, bigend=1);
-    keccak_add_uint256{inputs=keccak_input}(num=rec_keccak, bigend=1);
-    let (res_keccak: Uint256) = keccak(inputs=inputs_start, n_bytes=2 * 32);
-    let (res_keccak) = uint256_reverse_endian(res_keccak);
-    return (res_poseidon, res_keccak);
+
+    return (res_poseidon,);
 }
