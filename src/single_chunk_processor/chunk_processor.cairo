@@ -204,7 +204,7 @@ func main{
     %{
         ids.from_block_number_high=program_input['from_block_number_high']
         ids.to_block_number_low=program_input['to_block_number_low']
-        ids.mmr_offset=program_input['mmr_last_len'] 
+        ids.mmr_offset=program_input['mmr_last_len']
         ids.mmr_last_root_poseidon=program_input['mmr_last_root_poseidon']
         ids.block_n_plus_one_parent_hash = program_input['block_n_plus_one_parent_hash']
     %}

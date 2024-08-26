@@ -10,7 +10,6 @@ __pycache__
 *.env
 
 *.zip
-*.json
 *.db
 cache/
 out/
