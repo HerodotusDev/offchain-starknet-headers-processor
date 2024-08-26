@@ -1,7 +1,7 @@
-%builtins output range_check bitwise keccak poseidon
+%builtins output range_check bitwise poseidon
 
 from starkware.cairo.common.alloc import alloc
-from starkware.cairo.common.cairo_builtins import BitwiseBuiltin, KeccakBuiltin, PoseidonBuiltin
+from starkware.cairo.common.cairo_builtins import BitwiseBuiltin, PoseidonBuiltin
 from starkware.cairo.common.registers import get_fp_and_pc
 
 from starkware.cairo.common.uint256 import Uint256, uint256_reverse_endian
@@ -62,11 +62,6 @@ func verify_block_headers_and_hash_them{
     let (block_header_hash: felt) = compute_starknet_blockhash(block_headers_array[index]);
     assert 0 = block_header_hash - expected_block_hash;
 
-    %{ print("\n") %}
-    %{ print_u256(ids.block_header_hash_little,f"block_header_keccak_hash_{ids.index}") %}
-    %{ print_u256(ids.expected_block_hash,f"expected_keccak_hash_{ids.index}") %}
-
-
     // Store poseidon hash in the respective array
     assert poseidon_hash_array[index] = block_header_hash;
 
@@ -91,13 +86,10 @@ func verify_block_headers_and_hash_them{
 //
 // Implicit arguments :
 // - poseidon_hash_array: felt* - array of poseidon hashes of block headers
-// - keccak_hash_array: Uint256* - array of keccak hashes of block headers
 // - mmr_array_poseidon: felt* - array of new nodes to fill for the Poseidon MMR
-// - mmr_array_keccak: Uint256* - array of new nodes to fill for the Keccak MMR
 // - mmr_array_len: felt - length of mmr arrays
 // - mmr_offset: felt - offset of mmr arrays. ie : mmr_array_poseidon[i] is the i+mmr_offset-th+1 node of the MMR
 // - previous_peaks_dict_poseidon: DictAccess* - previous peaks of the Poseidon MMR
-// - previous_peaks_dict_keccak: DictAccess* - previous peaks of the Keccak MMR
 // - pow2_array: felt* - array of powers of 2
 //
 // Params:
@@ -144,11 +136,9 @@ func construct_mmr{
 // Recursively append nodes to MMR arrays if merging is needed (ie : checks if the height of the next position is higher than the current one)
 // Implicit arguments :
 // - mmr_array_poseidon: felt* - array of new nodes to fill for the Poseidon MMR
-// -mmr_array_keccak: Uint256* - array of new nodes to fill for the Keccak MMR
 //  -mmr_array_len: felt - length of mmr arrays
 // - mmr_offset: felt - offset of mmr arrays. ie : mmr_array_poseidon[i] is the i+mmr_offset-th+1 node of the MMR
 // - previous_peaks_dict_poseidon: DictAccess* - previous peaks of the Poseidon MMR
-// - previous_peaks_dict_keccak: DictAccess* - previous peaks of the Keccak MMR
 // - pow2_array: felt* - array of powers of 2
 //
 // Params:
@@ -203,7 +193,6 @@ func main{
     output_ptr: felt*,
     range_check_ptr,
     bitwise_ptr: BitwiseBuiltin*,
-    keccak_ptr: KeccakBuiltin*,
     poseidon_ptr: PoseidonBuiltin*,
 }() {
     alloc_locals;
@@ -218,36 +207,6 @@ func main{
         ids.mmr_offset=program_input['mmr_last_len'] 
         ids.mmr_last_root_poseidon=program_input['mmr_last_root_poseidon']
         ids.block_n_plus_one_parent_hash = program_input['block_n_plus_one_parent_hash']
-    %}
-    %{
-        def print_u256(u, un):
-            u = u.low + (u.high << 128) 
-            print(f" {un} = {hex(u)}")
-        def write_uint256_array(ptr, array):
-            counter = 0
-            for uint in array:
-                memory[ptr._reference_value+counter] = uint[0]
-                memory[ptr._reference_value+counter+1] = uint[1]
-                counter += 2
-        def print_block_header(block_headers_array, bytes_len_array, index):
-            rlp_ptr = memory[block_headers_array + index]
-            n_bytes= memory[bytes_len_array + index]
-            n_felts = n_bytes // 8 + 1 if n_bytes % 8 != 0 else n_bytes // 8
-            rlp_array = [memory[rlp_ptr + i] for i in range(n_felts)]
-            rlp_bytes_array=[int.to_bytes(x, 8, "big") for x in rlp_array]
-            rlp_bytes_array_little = [int.to_bytes(x, 8, "little") for x in rlp_array]
-            rlp_array_little = [int.from_bytes(x, 'little') for x in rlp_bytes_array]
-            x=[x.bit_length() for x in rlp_array]
-            print(f"\nBLOCK {index} :: bytes_len={n_bytes} || n_felts={n_felts}")
-            print(f"RLP_felt ={rlp_array}")
-            print(f"bit_big : {[x.bit_length() for x in rlp_array]}")
-            print(f"RLP_bytes_arr_big = {rlp_bytes_array}")
-            print(f"RLP_bytes_arr_lil = {rlp_bytes_array_little}")
-            print(f"bit_lil : {[x.bit_length() for x in rlp_array_little]}")
-        def print_mmr(mmr_array, mmr_array_len):
-            print(f"\nMMR :: mmr_array_len={mmr_array_len}")
-            mmr_values = [hex(memory[mmr_array + i]) for i in range(mmr_array_len)]
-            print(f"mmr_values = {mmr_values}")
     %}
 
     // -----------------------------------------------------
@@ -306,11 +265,6 @@ func main{
 
     // Common variable for both MMR :
     let mmr_array_len = 0;
-    %{
-        #print_block_header(ids.block_headers_array, ids.bytes_len_array, ids.n)
-        #print_block_header(ids.block_headers_array, ids.bytes_len_array, ids.n-1)
-        #print_block_header(ids.block_headers_array, ids.bytes_len_array, 0)
-    %}
 
     // -----------------------------------------------------
     // -----------------------------------------------------
@@ -333,7 +287,7 @@ func main{
     assert 0 = to_block_number_low - block_n_minus_r_plus_one_number;
 
     // %{ print(f"RLP successfully validated!") %}
-    // (2) Build Poseidon/Keccak MMR by appending all poseidon/keccak hashes of block headers stored in poseidon_hash_array/keccak_hash_array:
+    // (2) Build Poseidon MMR by appending all poseidon hashes of block headers stored in poseidon_hash_array:
     // %{ print(f"Building MMR...") %}
     with poseidon_hash_array, mmr_array_poseidon, mmr_array_len, pow2_array, mmr_offset, previous_peaks_dict_poseidon {
         construct_mmr(index=n);
@@ -369,8 +323,6 @@ func main{
     // 4 : block_n_minus_r_plus_one_number
     // 5 : MMR last root poseidon
     // 6 : New MMR root poseidon
-    // 7+8 : MMR last root keccak
-    // 9+10 : New MMR root keccak
     // 11 : MMR last size (<=> mmr_offset)
     // 12 : New MMR size (<=> mmr_array_len + mmr_offset)
 
@@ -404,10 +356,9 @@ func main{
     return ();
 }
 
-// Stores the values inside peaks_values_poseidon and peaks_values_keccak in two dictionaries represented by their end pointers,
+// Stores the values inside peaks_values_poseidon in two dictionaries represented by their end pointers,
 // such that:
 // - dict_poseidon[peak_positions[i]] = peaks_values_poseidon[i]
-// - dict_keccak[peak_positions[i]] = &peaks_values_keccak[i].
 // Since cairo dicts only allow felts values, for keccak, the Uint256 is stored by casting a pointer of the value to a felt.
 // See the function get_full_mmr_peak_values for the reverse operation.
 //
