@@ -60,6 +60,7 @@ func verify_block_headers_and_hash_them{
 ) {
     alloc_locals;
     let (block_header_hash: felt) = compute_starknet_blockhash(block_headers_array[index]);
+
     assert 0 = block_header_hash - expected_block_hash;
 
     // Store poseidon hash in the respective array
@@ -305,7 +306,7 @@ func main{
         let (new_mmr_root_poseidon: felt) = get_roots();
     }
 
-    %{ print("new root poseidon", ids.new_mmr_root_poseidon) %}
+    %{ print("new root poseidon", hex(ids.new_mmr_root_poseidon)) %}
     %{ print("new size", ids.mmr_array_len + ids.mmr_offset) %}
 
     default_dict_finalize(dict_start_poseidon, previous_peaks_dict_poseidon, 0);
