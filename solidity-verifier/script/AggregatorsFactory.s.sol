@@ -10,17 +10,21 @@ import {AggregatorsFactory} from "../src/AggregatorsFactory.sol";
 import {IFactsRegistry} from "../src/interfaces/IFactsRegistry.sol";
 import {IStarknet} from "../src/interfaces/IStarknet.sol";
 
-
 contract AggregatorsFactoryDeployer is Script {
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY"); 
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
-        IFactsRegistry factsRegistry = IFactsRegistry(vm.envAddress("FACTS_REGISTRY_ADDRESS"));
-        IStarknet starknet = IStarknet(vm.envAddress("STARKNET_ADDRESS")); 
+        IFactsRegistry factsRegistry = IFactsRegistry(
+            vm.envAddress("FACTS_REGISTRY_ADDRESS")
+        );
+        IStarknet starknet = IStarknet(vm.envAddress("STARKNET_ADDRESS"));
 
         // Deploy the template
-        SharpFactsAggregator aggregatorTemplate = new SharpFactsAggregator(factsRegistry, starknet);
+        SharpFactsAggregator aggregatorTemplate = new SharpFactsAggregator(
+            factsRegistry,
+            starknet
+        );
 
         console.log(
             "Aggregator TEMPLATE deployed at: ",
@@ -28,9 +32,7 @@ contract AggregatorsFactoryDeployer is Script {
         );
 
         // Deploy the factory
-        AggregatorsFactory factory = new AggregatorsFactory(
-            aggregatorTemplate
-        );
+        AggregatorsFactory factory = new AggregatorsFactory(aggregatorTemplate);
 
         console.log("AggregatorsFactory deployed at: ", address(factory));
 

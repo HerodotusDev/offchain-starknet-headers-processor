@@ -43,10 +43,6 @@ contract AggregatorsFactory is AccessControl {
     bytes32 public constant POSEIDON_MMR_INITIAL_ROOT =
         0x06759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae;
 
-    // keccak_hash(1, "brave new world")
-    bytes32 public constant KECCAK_MMR_INITIAL_ROOT =
-        0x5d8d23518dd388daa16925ff9475c5d1c06430d21e0422520d6a56402f42937b;
-
     // Events
     event UpgradeProposal(SharpFactsAggregator newTemplate);
     event Upgrade(
