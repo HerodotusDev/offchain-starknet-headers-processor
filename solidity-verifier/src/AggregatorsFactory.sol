@@ -118,7 +118,7 @@ contract AggregatorsFactory is AccessControl {
 
         // Initialize the newly created aggregator
         bytes memory data = abi.encodeWithSignature(
-            "initialize((bytes32,bytes32,uint256,bytes32))",
+            "initialize((bytes32,uint256,bytes32))",
             initialAggregatorState
         );
 

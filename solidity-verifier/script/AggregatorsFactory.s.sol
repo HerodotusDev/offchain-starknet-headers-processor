@@ -18,7 +18,9 @@ contract AggregatorsFactoryDeployer is Script {
         IFactsRegistry factsRegistry = IFactsRegistry(
             vm.envAddress("FACTS_REGISTRY_ADDRESS")
         );
-        IStarknet starknet = IStarknet(vm.envAddress("STARKNET_ADDRESS"));
+        IStarknet starknet = IStarknet(
+            vm.envAddress("STARKNET_CORE_L1_ADDRESS")
+        );
 
         // Deploy the template
         SharpFactsAggregator aggregatorTemplate = new SharpFactsAggregator(
