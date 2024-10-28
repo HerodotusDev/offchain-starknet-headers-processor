@@ -18,7 +18,7 @@ contract Live is Test {
 
         //? For testing of a fully live contract use this:
         // address aggregatorAddress = address(
-        //     0xF92800e310a44e2cb3301e45e99Febf997A093fE
+        //     0x3931D30A45bD56202f1ebE1058D535F595Fa4cd3
         // );
         // aggregator = SharpFactsAggregator(aggregatorAddress);
 
@@ -28,7 +28,7 @@ contract Live is Test {
                 .AggregatorState({
                     poseidonMmrRoot: 0x06759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae,
                     mmrSize: 1,
-                    continuableParentHash: 0x8d38275adfe450dbb8a8961ba1f4c7891309e6d97353aa7d712bb058dd2abeab
+                    continuableParentHash: 0x07325f4e5ba61ec91288d506cebda2dbd3eb24d7a97c8df83fa0558354fbdb24
                 });
         MockedSharpFactsRegistry factsRegistry = MockedSharpFactsRegistry(
             vm.envAddress("FACTS_REGISTRY_ADDRESS")
@@ -39,7 +39,7 @@ contract Live is Test {
 
         vm.startBroadcast(privateKey);
         factsRegistry.setValid(
-            0xa2982e1ffe4de5c8540e7ecad6152f8bcf62f8f564573e9897bb99da55bb4851
+            0x5c38443f2d3e64de0089ce9e96eeeaa38aa5b598efbdedd8825d4317700786d0
         );
         aggregator = new SharpFactsAggregator(factsRegistry, starknet);
         aggregator.initialize(initialAggregatorState);
@@ -47,36 +47,48 @@ contract Live is Test {
     }
 
     function test_a() external {
-        //? before this sync or continuable parent hash is requried:
-        //
-        // registerNewRange(6892937)
-        //
-        //? equivalent to putting this in SharpFactsAggregator's constructor:
-        //
-        // blockNumberToParentHash[
-        //     6892937
-        // ] = 0x8d38275adfe450dbb8a8961ba1f4c7891309e6d97353aa7d712bb058dd2abeab;
-        //
-        //? or
-        //
-        // aggregatorState
-        //     .continuableParentHash = 0x8d38275adfe450dbb8a8961ba1f4c7891309e6d97353aa7d712bb058dd2abeab;
+        // {
+        //     from_block_number_high: 266981,
+        //     to_block_number_low: 266979,
+        //     block_n_plus_one_parent_hash: "0x07325f4e5ba61ec91288d506cebda2dbd3eb24d7a97c8df83fa0558354fbdb24",
+        //     block_n_minus_r_plus_one_parent_hash: "0x04da70ca0327565ceb8b3182156299778f901623412ebe4d336fc722d477448b",
+        //     mmr_previous_root_poseidon: "0x06759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae",
+        //     mmr_previous_size: 1,
+        //     mmr_new_root_poseidon: "0x0184abee7996d0024314f0fe164990e8c8722ea822653e45b8024cd27ca07f20",
+        //     mmr_new_size: 7,
+        // }
+
+        // [266981, 266979, 3255190071752325527662919535470927917839056211725393101733102840141210966820, 2195202496286939969296121270920273012516211210819292617514993638531380233355, 2921600461849179232597610084551483949436449163481908169507355734771418934190, 1, 686723289031449058245457067313426500718812556509685386354983963672749047584, 7]
+
+        // ['0x412e5', '0x412e3', '0x07325f4e5ba61ec91288d506cebda2dbd3eb24d7a97c8df83fa0558354fbdb24', '0x04da70ca0327565ceb8b3182156299778f901623412ebe4d336fc722d477448b', '0x06759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae', '0x1', '0x0184abee7996d0024314f0fe164990e8c8722ea822653e45b8024cd27ca07f20', '0x7']
+
+        // Logs:
+        //     outputs[0] = 266981
+        //     outputs[1] = 266979
+        //     outputs[2] = 3255190071752325527662919535470927917839056211725393101733102840141210966820
+        //     outputs[3] = 2195202496286939969296121270920273012516211210819292617514993638531380233355
+        //     outputs[4] = 2921600461849179232597610084551483949436449163481908169507355734771418934190
+        //     outputs[5] = 1
+        //     outputs[6] = 686723289031449058245457067313426500718812556509685386354983963672749047584
+        //     outputs[7] = 7
+        //     outputHash = 0xaebe50e8af865de8fc8a38e108ec47c9d1c9eca6aa430adb9b48aee91528a042
+        //     fact       = 0x423211a8817a9723b449bb00fa3a46e30ebb849df3766f075c2f6dba4e72c777
 
         SharpFactsAggregator.JobOutput[]
             memory jobOutputs = new SharpFactsAggregator.JobOutput[](1);
 
         jobOutputs[0] = SharpFactsAggregator.JobOutput({
-            // 692d88 - 6892936
-            fromBlockNumberHigh: 0x692d88,
-            // 692d85 - 6892933
-            toBlockNumberLow: 0x692d85,
-            blockNPlusOneParentHash: 0x8d38275adfe450dbb8a8961ba1f4c7891309e6d97353aa7d712bb058dd2abeab,
-            blockNMinusRPlusOneParentHash: 0x3d557adee5e7064f164bf5918deea80508b52978a2d7876cc247ecbbd5900b71,
+            fromBlockNumberHigh: 266981,
+            toBlockNumberLow: 266979,
+            blockNPlusOneParentHash: 0x07325f4e5ba61ec91288d506cebda2dbd3eb24d7a97c8df83fa0558354fbdb24,
+            blockNMinusRPlusOneParentHash: 0x04da70ca0327565ceb8b3182156299778f901623412ebe4d336fc722d477448b,
             mmrPreviousRootPoseidon: 0x06759138078831011e3bc0b4a135af21c008dda64586363531697207fb5a2bae,
-            mmrPreviousSize: 0x1,
-            mmrNewRootPoseidon: 0x021274b8cfb5ba2ae9b1e2466122f933d24b9c1f21861878e8498fbcdd0f6141,
-            mmrNewSize: 0x8
+            mmrPreviousSize: 1,
+            mmrNewRootPoseidon: 0x0184abee7996d0024314f0fe164990e8c8722ea822653e45b8024cd27ca07f20,
+            mmrNewSize: 7
         });
+
+        // 0x5c38443f2d3e64de0089ce9e96eeeaa38aa5b598efbdedd8825d4317700786d0
 
         vm.startBroadcast(privateKey);
         aggregator.aggregateSharpJobs(jobOutputs);
