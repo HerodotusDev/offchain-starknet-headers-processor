@@ -10,9 +10,9 @@ use cairo_vm::{
 use eth_essentials_cairo_vm_hints::utils;
 use std::collections::HashMap;
 
-pub const HINT_INPUT: &str = "ids.from_block_number_high=program_input['from_block_number_high']\nids.to_block_number_low=program_input['to_block_number_low']\nids.mmr_offset=program_input['mmr_last_len']\nids.mmr_last_root_poseidon=program_input['mmr_last_root_poseidon']\nids.block_n_plus_one_parent_hash = program_input['block_n_plus_one_parent_hash_little']";
+pub const HINT_INPUT: &str = "ids.from_block_number_high=program_input['from_block_number_high']\nids.to_block_number_low=program_input['to_block_number_low']\nids.mmr_offset=program_input['mmr_last_len']\nids.mmr_last_root_poseidon=program_input['mmr_last_root_poseidon']\nids.block_n_plus_one_parent_hash = program_input['block_n_plus_one_parent_hash']";
 pub const HINT_INPUT_PREV: &str = "segments.write_arg(ids.previous_peaks_values_poseidon, program_input['poseidon_mmr_last_peaks'])";
-pub const HINT_INPUT_BLOCK_HEADERS: &str = "block_headers_array = program_input['block_headers_array']\nsegments.write_arg(ids.block_headers_array, block_headers_array)";
+pub const HINT_INPUT_BLOCK_HEADERS: &str = "block_headers_array = program_input['preimages_array']\nsegments.write_arg(ids.block_headers_array, block_headers_array)";
 
 impl CustomHintProcessor {
     pub fn hint_input(
