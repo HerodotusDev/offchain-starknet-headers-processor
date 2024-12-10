@@ -1,4 +1,4 @@
-cairo-lang==0.13.1
+cairo-lang==0.13.3
 typeguard==2.13.3
 protobuf==3.20.3
 sympy==1.12.1
