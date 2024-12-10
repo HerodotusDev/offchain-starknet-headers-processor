@@ -1,7 +1,7 @@
-%builtins output range_check bitwise poseidon
+%builtins output pedersen range_check bitwise poseidon
 
 from starkware.cairo.common.alloc import alloc
-from starkware.cairo.common.cairo_builtins import BitwiseBuiltin, PoseidonBuiltin
+from starkware.cairo.common.cairo_builtins import BitwiseBuiltin, PoseidonBuiltin, HashBuiltin
 from starkware.cairo.common.registers import get_fp_and_pc
 
 from starkware.cairo.common.uint256 import Uint256, uint256_reverse_endian
@@ -51,6 +51,7 @@ from src.libs.mmr import (
 // - last_block_header_big: felt* - reversed block header of block_headers_array[0] (big endian)
 func verify_block_headers_and_hash_them{
     range_check_ptr,
+    pedersen_ptr: HashBuiltin*,
     bitwise_ptr: BitwiseBuiltin*,
     poseidon_ptr: PoseidonBuiltin*,
     poseidon_hash_array: felt*,
@@ -192,6 +193,7 @@ func merge_subtrees_if_applicable{
 // See readme for more details.
 func main{
     output_ptr: felt*,
+    pedersen_ptr: HashBuiltin*,
     range_check_ptr,
     bitwise_ptr: BitwiseBuiltin*,
     poseidon_ptr: PoseidonBuiltin*,
