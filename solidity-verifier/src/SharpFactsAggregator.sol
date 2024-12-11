@@ -42,7 +42,7 @@ contract SharpFactsAggregator is Initializable, AccessControlUpgradeable {
     bytes32 public constant PROGRAM_HASH =
         bytes32(
             uint256(
-                0x1aa7dde89acab91143e4786d4793a0cc8dc2f05084fc7bfb3fe64058afb482b
+                0x5dc00f4bec4077d7f511008cff02c0688efb11cfabb6029d084e5e309dcf014
             )
         );
 
