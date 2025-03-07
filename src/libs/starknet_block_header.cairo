@@ -8,6 +8,10 @@ from starkware.cairo.common.hash_state import hash_felts_no_padding
 func extract_parent_hash{range_check_ptr}(blockhash_preimage: felt*) -> (res: felt) {
     if (blockhash_preimage[0] == 0x535441524B4E45545F424C4F434B5F4841534830) {
         return (res=blockhash_preimage[16]);
+    } 
+    
+    if (blockhash_preimage[0] == 0x535441524B4E45545F424C4F434B5F4841534831) {
+        return (res=blockhash_preimage[13]);
     } else {
         return (res=blockhash_preimage[11]);
     }
@@ -28,6 +32,11 @@ func compute_starknet_blockhash{
     if (blockhash_preimage[0] == 0x535441524B4E45545F424C4F434B5F4841534830) {
         let (blockhash) = poseidon_hash_many(n=17, elements=blockhash_preimage);
         return (res=blockhash);
+    } 
+
+    if (blockhash_preimage[0] == 0x535441524B4E45545F424C4F434B5F4841534831) {
+        let (blockhash) = poseidon_hash_many(n=14, elements=blockhash_preimage);
+        return (res=blockhash);
     } else {
         let initial_hash = [blockhash_preimage];
         let hash_ptr = pedersen_ptr;
@@ -37,6 +46,7 @@ func compute_starknet_blockhash{
         let pedersen_ptr = hash_ptr;
         return (res=blockhash);
     }
+    
 }
 
 func read_block_headers() -> (preimages_array: felt**) {
