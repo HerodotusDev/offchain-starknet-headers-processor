@@ -16,9 +16,11 @@ use cairo_vm::{
     },
     Felt252,
 };
+use num_bigint::BigUint;
+use serde_json::Value;
 use starknet_types_core::felt::Felt;
-use std::collections::HashMap;
 use std::{any::Any, rc::Rc};
+use std::{collections::HashMap, str::FromStr};
 
 #[derive(Default)]
 pub struct CustomHintProcessor {
@@ -91,7 +93,36 @@ impl Default for ExtendedHintProcessor {
 }
 
 impl ExtendedHintProcessor {
+    fn prepare_inputs(value: Value) -> Value {
+        match value.clone() {
+            Value::Number(n) => {
+                // Check if it's a valid number and if it's a big number
+                if let Ok(big_num) = BigUint::from_str(n.as_str()) {
+                    // Convert the big number to hexadecimal with '0x' prefix
+                    Value::String(format!("0x{:X}", big_num))
+                } else {
+                    value // If it can't be converted to BigUint, return as is
+                }
+            }
+            Value::Array(arr) => {
+                // Recursively convert all items in the array
+                Value::Array(arr.into_iter().map(Self::prepare_inputs).collect())
+            }
+            Value::Object(map) => {
+                // Recursively convert all key-value pairs in the object
+                Value::Object(
+                    map.into_iter()
+                        .map(|(k, v)| (k, Self::prepare_inputs(v)))
+                        .collect(),
+                )
+            }
+            _ => value, // Return other types (like String, Bool) as is
+        }
+    }
+
     pub fn new(private_inputs: serde_json::Value) -> Self {
+        // Convert all decimal numbers to hexadecimal - support for python inputs format
+        let private_inputs = Self::prepare_inputs(private_inputs);
         Self {
             custom_hint_processor: CustomHintProcessor { private_inputs },
             builtin_hint_processor: BuiltinHintProcessor::new_empty(),

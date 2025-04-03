@@ -9,7 +9,6 @@ from starkware.cairo.common.keccak_utils.keccak_utils import keccak_add_uint256
 
 from src.libs.mmr import (
     compute_height_pre_alloc_pow2,
-    compute_first_peak_pos,
     compute_peaks_positions,
     bag_peaks,
     get_roots,
