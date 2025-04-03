@@ -4,7 +4,6 @@ from starkware.cairo.common.builtin_poseidon.poseidon import poseidon_hash_many
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.hash_state import hash_felts_no_padding
 
-
 func extract_parent_hash{range_check_ptr}(blockhash_preimage: felt*) -> (res: felt) {
     if (blockhash_preimage[0] == 0x535441524B4E45545F424C4F434B5F4841534830) {
         return (res=blockhash_preimage[16]);

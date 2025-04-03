@@ -17,7 +17,7 @@ from src.libs.starknet_block_header import (
     extract_parent_hash,
     extract_block_number,
     compute_starknet_blockhash,
-    read_block_headers
+    read_block_headers,
 )
 from src.libs.utils import pow2alloc127
 
@@ -29,7 +29,6 @@ from src.libs.mmr import (
     get_full_mmr_peak_values,
     assert_mmr_size_is_valid,
 )
-
 
 // Recursively verifies that Cairo_Keccak(block_header_i) = parent_hash(block_header_i+1)_little_endian for all from i=index to i=0
 // Reverses each block_header_i back to big endian and hashes it with poseidon_hash_many
@@ -225,9 +224,7 @@ func main{
 
     // Write previous peaks values and compute root of previous MMR:
     let (previous_peaks_values_poseidon: felt*) = alloc();  // From left to right
-    %{
-        segments.write_arg(ids.previous_peaks_values_poseidon, program_input['poseidon_mmr_last_peaks']) 
-    %}
+    %{ segments.write_arg(ids.previous_peaks_values_poseidon, program_input['poseidon_mmr_last_peaks']) %}
 
     // Ensure that the previous MMR size is valid.
     assert_mmr_size_is_valid{pow2_array=pow2_array}(mmr_offset);
@@ -249,12 +246,8 @@ func main{
     // If previous peaks match the previous root, append the peak values to previous_peaks_dict:
     let (local previous_peaks_dict_poseidon) = default_dict_new(default_value=0);
     tempvar dict_start_poseidon = previous_peaks_dict_poseidon;
-    initialize_peaks_dicts{
-        dict_end_poseidon=previous_peaks_dict_poseidon
-    }(
-        previous_peaks_positions_len - 1,
-        previous_peaks_positions,
-        previous_peaks_values_poseidon,
+    initialize_peaks_dicts{dict_end_poseidon=previous_peaks_dict_poseidon}(
+        previous_peaks_positions_len - 1, previous_peaks_positions, previous_peaks_values_poseidon
     );
 
     // Initialize Poseidon MMR:
@@ -308,8 +301,10 @@ func main{
         let (new_mmr_root_poseidon: felt) = get_roots();
     }
 
-    %{ print("new root poseidon", hex(ids.new_mmr_root_poseidon)) %}
-    %{ print("new size", ids.mmr_array_len + ids.mmr_offset) %}
+    %{
+        print("new root poseidon", ids.new_mmr_root_poseidon)
+        print("new size", ids.mmr_array_len + ids.mmr_offset)
+    %}
 
     default_dict_finalize(dict_start_poseidon, previous_peaks_dict_poseidon, 0);
 
