@@ -3,7 +3,6 @@
 pub mod hint_processor;
 pub mod hints;
 
-use bincode::enc::write::Writer;
 use cairo_vm::air_public_input::PublicInputError;
 use cairo_vm::cairo_run::{self, EncodeTraceError};
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor;
@@ -113,30 +112,17 @@ enum Error {
 
 struct FileWriter {
     buf_writer: io::BufWriter<std::fs::File>,
-    bytes_written: usize,
 }
 
-impl Writer for FileWriter {
-    fn write(&mut self, bytes: &[u8]) -> Result<(), bincode::error::EncodeError> {
-        self.buf_writer
-            .write_all(bytes)
-            .map_err(|e| bincode::error::EncodeError::Io {
-                inner: e,
-                index: self.bytes_written,
-            })?;
-
-        self.bytes_written += bytes.len();
-
-        Ok(())
+impl cairo_run::BinaryWrite for FileWriter {
+    fn write_all(&mut self, bytes: &[u8]) -> Result<(), cairo_run::WriteError> {
+        std::io::Write::write_all(&mut self.buf_writer, bytes).map_err(|_| cairo_run::WriteError)
     }
 }
 
 impl FileWriter {
     fn new(buf_writer: io::BufWriter<std::fs::File>) -> Self {
-        Self {
-            buf_writer,
-            bytes_written: 0,
-        }
+        Self { buf_writer }
     }
 
     fn flush(&mut self) -> io::Result<()> {
